@@ -1,0 +1,6 @@
+[submodule "dbus"]
+	path = dbus
+	url = https://github.com/anonymix007/dbus
+[submodule "go-gst"]
+	path = go-gst
+	url = https://github.com/anonymix007/go-gst
