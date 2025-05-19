@@ -3,6 +3,7 @@ package main
 import (
     "encoding/binary"
     "fmt"
+    "sort"
 
     "github.com/go-gst/go-gst/gst"
     "github.com/go-gst/go-gst/gst/allocators"
@@ -66,7 +67,8 @@ type DmaPicture struct {
     w   uint32
     h   uint32
 
-    stride uint32
+    offset []uint64
+    stride []int
     size   int64
 
     fourcc uint32
@@ -75,12 +77,28 @@ type DmaPicture struct {
     alloc *allocators.DmaBufAllocator
 }
 
-func NewDmaPicture(fd int, width, height, stride, fourcc uint32, modifier uint64, y0_top bool) Picture {
+func NewDmaPicture(fd int, width, height uint32, offset, stride []uint32, fourcc uint32, modifier uint64, y0_top bool) Picture {
     // FIXME: gstreamer does not support 0xffffffffffffff
     // https://gitlab.freedesktop.org/mesa/mesa/-/issues/11629
     // https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/8213
 
-    return &DmaPicture{fd, width, height, stride, int64(stride) * int64(height), fourcc, modifier, allocators.NewDmaBufAllocator()}
+    offsets := make([]uint64, len(offset))
+    for i, o := range offset {
+        offsets[i] = uint64(o)
+    }
+
+    strides := make([]int, len(stride))
+    for i, s := range stride {
+        strides[i] = int(s)
+    }
+
+    if !sort.SliceIsSorted(offsets, func (i, j int) bool {return offsets[i] < offsets[j]}) {
+        panic(fmt.Errorf("cannot handle unsorted offsets: %v", offsets))
+    }
+
+    size := int64(offsets[len(offset) - 1]) + int64(strides[len(stride) - 1]) * int64(height)
+
+    return &DmaPicture{fd, width, height, offsets, strides, size, fourcc, modifier, allocators.NewDmaBufAllocator()}
 }
 
 func (p *DmaPicture) CreateCaps() *gst.Caps {
@@ -99,7 +117,8 @@ func (p *DmaPicture) CreateBuffer() *gst.Buffer {
     buffer := gst.NewEmptyBuffer()
     memory := p.alloc.AllocDmaBufWithFlags(p.fd, p.size, allocators.FdMemoryFlagDontClose)
     buffer.AppendMemory(memory)
-    video.BufferAddVideoMetaFull(buffer, video.FrameFlagNone, video.FormatFromFOURCC(p.fourcc), uint(p.w), uint(p.h), []uint64{0}, []int{int(p.stride)})
+
+    video.BufferAddVideoMetaFull(buffer, video.FrameFlagNone, video.FormatFromFOURCC(p.fourcc), uint(p.w), uint(p.h), p.offset, p.stride)
     return buffer
 }
 

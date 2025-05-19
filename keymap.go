@@ -157,6 +157,8 @@ var keymap = map[string]uint32{
     "Caps_Lock":         0x3a,
     "Meta_L":            0xdb,
     "Meta_R":            0xdc,
+    "Super_L":           0xdb,
+    "Super_R":           0xdc,
     "Alt_L":             0x38,
     "Alt_R":             0xb8,
     "Delete":            0xd3,

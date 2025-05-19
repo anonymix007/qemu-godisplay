@@ -44,4 +44,6 @@ const (
     listenerIntf = displayIntf + ".Listener"
 
     listenerUnixMapIntf = listenerIntf + ".Unix.Map"
+
+    listenerUnixScanoutDMABUF2Intf = listenerIntf + ".Unix.ScanoutDMABUF2"
 )

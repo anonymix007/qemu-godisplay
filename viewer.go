@@ -26,6 +26,7 @@ func (dl *DisplayListener) Scanout(width, height, stride, format uint32, data []
     // fmt.Printf("Scanout: resolution %dx%d, stride %d, fmt %x, data %d\n", width, height, stride, format, len(data))
 
     dl.flip.SetArg("input-flags-override", "none")
+    dl.flip.SetArg("video-direction", "identity")
 
     dl.img = NewRawPicture(width, height, stride, format, data)
     dl.caps = dl.img.CreateCaps()
@@ -55,11 +56,13 @@ func (dl *DisplayListener) ScanoutDMABUF(fd dbus.UnixFD, width, height, stride, 
 
     if y0_top {
         dl.flip.SetArg("input-flags-override", "left-flipped")
+        dl.flip.SetArg("video-direction", "vert")
     } else {
         dl.flip.SetArg("input-flags-override", "none")
+        dl.flip.SetArg("video-direction", "identity")
     }
 
-    dl.img = NewDmaPicture(int(fd), width, height, stride, fourcc, modifier, y0_top)
+    dl.img = NewDmaPicture(int(fd), width, height, []uint32{0}, []uint32{stride}, fourcc, modifier, y0_top)
     dl.caps = dl.img.CreateCaps()
 
     sample := gst.NewSample(dl.img.CreateBuffer(), dl.caps)
@@ -101,6 +104,7 @@ func (dl *DisplayListener) ScanoutMap(fd dbus.UnixFD, offset, width, height, str
     // fmt.Printf("ScanoutMap: resolution %dx%d, stride %d, fmt %x, fd %d, offset %d\n", width, height, stride, format, fd, offset)
 
     dl.flip.SetArg("input-flags-override", "none")
+    dl.flip.SetArg("video-direction", "identity")
 
     dl.img = NewShmemPicture(int(fd), offset, width, height, stride, format)
     dl.caps = dl.img.CreateCaps()
@@ -119,6 +123,30 @@ func (dl *DisplayListener) UpdateMap(x, y, width, height int32) *dbus.Error {
     }
 
     dl.img.Update(uint32(x), uint32(y), uint32(width), uint32(height), 0, nil)
+    sample := gst.NewSample(dl.img.CreateBuffer(), dl.caps)
+    dl.src.PushSample(sample)
+
+    return nil
+}
+
+func (dl *DisplayListener) ScanoutDMABUF2(fd []dbus.UnixFD, x, y, width, height uint32, offset, stride []uint32, num_planes, fourcc, backing_width, backing_height uint32, modifier uint64, y0_top bool) *dbus.Error {
+    // fmt.Printf("ScanoutDMABUF2: resolution %dx%d (%dx%d), num_planes %d, offset %v, stride %v, fmt %x:%x, fd %d, normal y: %t\n", width, height, backing_width, backing_height, num_planes, offset, stride, fourcc, modifier, fd, y0_top)
+
+    if y0_top {
+        dl.flip.SetArg("input-flags-override", "left-flipped")
+        dl.flip.SetArg("video-direction", "vert")
+    } else {
+        dl.flip.SetArg("input-flags-override", "none")
+        dl.flip.SetArg("video-direction", "identity")
+    }
+
+    if len(fd) != 1 {
+        panic(fmt.Errorf("cannot handle dma buffers with %d fds", len(fd)))
+    }
+
+    dl.img = NewDmaPicture(int(fd[0]), width, height, offset, stride, fourcc, modifier, y0_top)
+    dl.caps = dl.img.CreateCaps()
+
     sample := gst.NewSample(dl.img.CreateBuffer(), dl.caps)
     dl.src.PushSample(sample)
 

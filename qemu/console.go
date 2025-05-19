@@ -22,6 +22,10 @@ type DisplayListenerUnixMap interface {
     UpdateMap(x, y, width, height int32) *dbus.Error
 }
 
+type DisplayListenerUnixScanoutDMABUF2 interface {
+    ScanoutDMABUF2(fd []dbus.UnixFD, x, y, width, height uint32, offset, stride []uint32, num_planes, fourcc, backing_width, backing_height uint32, modifier uint64, y0_top bool) *dbus.Error
+}
+
 type Console struct {
     conn        *dbus.Conn
     console     dbus.BusObject
@@ -126,6 +130,17 @@ func (c *Console) RegisterListener(listener DisplayListener) error {
         }
         interfaces = append(interfaces, listenerUnixMapIntf)
     }
+
+    unixDmaBuf2Listener, ok := listener.(DisplayListenerUnixScanoutDMABUF2)
+    if ok {
+        err = conn.Export(unixDmaBuf2Listener, listenerPath, listenerUnixScanoutDMABUF2Intf)
+        if err != nil {
+            return err
+        }
+        interfaces = append(interfaces, listenerUnixScanoutDMABUF2Intf)
+    }
+
+    fmt.Println("Registering interfaces:", interfaces)
 
     propsMap := map[string]map[string]*prop.Prop{
         listenerIntf: {
