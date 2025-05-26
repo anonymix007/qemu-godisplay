@@ -3,8 +3,6 @@ package qemu
 import (
     "fmt"
     "os"
-    //"net"
-    //"syscall"
 
     "github.com/godbus/dbus/v5"
 )

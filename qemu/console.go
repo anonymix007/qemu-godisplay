@@ -2,6 +2,8 @@ package qemu
 
 import (
     "fmt"
+    "net"
+    "syscall"
 
     "github.com/godbus/dbus/v5"
     "github.com/godbus/dbus/v5/prop"
@@ -39,6 +41,7 @@ type Console struct {
 
 type listenerConn struct {
     conn *dbus.Conn
+    unix *net.UnixConn
     impl DisplayListener
     prop *prop.Properties
 }
@@ -140,8 +143,6 @@ func (c *Console) RegisterListener(listener DisplayListener) error {
         interfaces = append(interfaces, listenerUnixScanoutDMABUF2Intf)
     }
 
-    fmt.Println("Registering interfaces:", interfaces)
-
     propsMap := map[string]map[string]*prop.Prop{
         listenerIntf: {
             "Interfaces": {
@@ -158,7 +159,7 @@ func (c *Console) RegisterListener(listener DisplayListener) error {
         return err
     }
 
-    c.listeners = append(c.listeners, listenerConn{conn, listener, props})
+    c.listeners = append(c.listeners, listenerConn{conn, us, listener, props})
 
     ret := c.console.Call(consoleRegisterListener, 0, themFd)
 
@@ -169,5 +170,23 @@ func (c *Console) RegisterListener(listener DisplayListener) error {
     // FIXME: hangs here. Is this expected?
     // <- ret.Done
 
+    syscall.Close(int(themFd))
+
     return ret.Err
+}
+
+
+func (c *Console) UnregisterListener(listener DisplayListener) error {
+    var newListeners []listenerConn
+    for _, v := range c.listeners {
+        if v.impl == listener {
+            v.conn.Close()
+            v.unix.Close()
+        } else {
+            newListeners = append(newListeners, v)
+        }
+    }
+    c.listeners = newListeners
+
+    return nil
 }
