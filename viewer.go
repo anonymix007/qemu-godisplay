@@ -96,7 +96,7 @@ func (dl *DisplayListener) MouseSet(x, y, on int) *dbus.Error {
 }
 
 func (dl *DisplayListener) CursorDefine(width, height, hot_x, hot_y int, data []byte) *dbus.Error {
-    fmt.Printf("CursorDefine: %dx%d (%d,%d) -> %v\n", width, height, hot_x, hot_y, data)
+    fmt.Printf("CursorDefine: %dx%d (%d,%d) -> <pixels>\n", width, height, hot_x, hot_y)
     return nil
 }
 
